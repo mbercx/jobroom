@@ -1,0 +1,14 @@
+HTTP/1.1 200 
+x-total-count: 301
+link: </api/_search/jobs?page=1&size=2>; rel="next",</api/_search/jobs?page=150&size=2>; rel="last",</api/_search/jobs?page=0&size=2>; rel="first"
+x-content-type-options: nosniff
+x-xss-protection: 0
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+pragma: no-cache
+expires: 0
+strict-transport-security: max-age=31536000 ; includeSubDomains
+content-type: application/json
+date: Wed, 22 Jul 2026 13:35:52 GMT
+set-cookie: 76c923787fc88e4e60971095c4486354=54f39b10aa82dce0c35422fba4054742; path=/; HttpOnly; Secure; SameSite=None
+Content-Length: 5006
+
