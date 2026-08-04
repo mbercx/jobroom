@@ -12,6 +12,7 @@ license = {file = "LICENSE"}
 keywords = ["job-room", "arbeit.swiss", "jobs", "switzerland", "seco"]
 authors = [{name = "Marnik Bercx"}]
 dependencies = [
+  "pydantic~=2.0",
   "requests",
 ]
 classifiers = [
