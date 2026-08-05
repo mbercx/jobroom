@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import requests
+from tqdm.auto import tqdm
 
 from jobroom.models import SearchHit
 
 API_BASE = "https://api.job-room.ch/jobadservice/api/jobAdvertisements"
 USER_AGENT = "jobroom/0.1 (+https://github.com/mbercx/jobroom)"
+PAGE_SIZE = 100
+MIN_INTERVAL = 0.5  # seconds between paginated requests
 
 
 class JobRoomClient:
@@ -24,8 +28,9 @@ class JobRoomClient:
         keywords: list[str],
         workload_min: int = 0,
         online_since: int = 30,
+        limit: int = 1000,
     ) -> list[SearchHit]:
-        """Return one page of search results.
+        """Return search results, fetching at most `limit` ads.
 
         Each `SearchHit` carries a keyword-context `snippet`, not the full ad;
         use `get` to fetch the complete advertisement.
@@ -37,10 +42,34 @@ class JobRoomClient:
             "onlineSince": online_since,
             "displayRestricted": False,
         }
-        params: dict[str, str | int] = {"page": 0, "size": 20, "sort": "date_desc"}
-        response = self.session.post(f"{API_BASE}/_search", json=body, params=params)
-        response.raise_for_status()
-        return [SearchHit.model_validate(record) for record in response.json()]
+        hits: list[SearchHit] = []
+        size = min(PAGE_SIZE, limit)
+        progress = None
+        page = 0
+        while True:
+            params: dict[str, str | int] = {
+                "page": page,
+                "size": size,
+                "sort": "date_desc",
+            }
+            response = self.session.post(
+                f"{API_BASE}/_search", json=body, params=params
+            )
+            response.raise_for_status()
+            records = response.json()
+            hits.extend(SearchHit.model_validate(record) for record in records)
+
+            target = min(int(response.headers.get("X-Total-Count", len(hits))), limit)
+            if progress is None:
+                progress = tqdm(total=target, unit="ads", disable=target <= size)
+            progress.update(min(len(records), target - progress.n))
+
+            if len(hits) >= target or not records:
+                break
+            time.sleep(MIN_INTERVAL)
+            page += 1
+        progress.close()
+        return hits[:limit]
 
     def get(self, ad_id: str) -> dict[str, Any]:
         """Return the raw record of a single advertisement."""
