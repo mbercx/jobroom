@@ -8,7 +8,7 @@ from typing import Any
 import requests
 from tqdm.auto import tqdm
 
-from jobroom.models import SearchHit
+from jobroom.models import JobAd, SearchHit
 
 API_BASE = "https://api.job-room.ch/jobadservice/api/jobAdvertisements"
 USER_AGENT = "jobroom/0.1 (+https://github.com/mbercx/jobroom)"
@@ -71,8 +71,8 @@ class JobRoomClient:
         progress.close()
         return hits[:limit]
 
-    def get(self, ad_id: str) -> dict[str, Any]:
-        """Return the raw record of a single advertisement."""
+    def get(self, ad_id: str) -> JobAd:
+        """Return the complete advertisement with the given id."""
         response = self.session.get(f"{API_BASE}/{ad_id}")
         response.raise_for_status()
-        return response.json()
+        return JobAd.model_validate(response.json())

@@ -27,18 +27,22 @@ def clean_html(text: str) -> str:
 class Company(BaseModel):
     """The employer, with the address details of its head office."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str | None = None
     street: str | None = None
-    postal_code: str | None = None
+    postal_code: str | None = Field(None, validation_alias="postalCode")
     city: str | None = None
-    country: str | None = None
+    country: str | None = Field(None, validation_alias="countryIsoCode")
 
 
 class Contact(BaseModel):
     """Contact person for the position, when the ad names one."""
 
-    first_name: str | None = None
-    last_name: str | None = None
+    model_config = ConfigDict(populate_by_name=True)
+
+    first_name: str | None = Field(None, validation_alias="firstName")
+    last_name: str | None = Field(None, validation_alias="lastName")
     email: str | None = None
     phone: str | None = None
 
@@ -97,19 +101,69 @@ class JobAd(BaseModel):
     The untouched API payload is kept on `raw`.
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    title: str | None = None
-    company: Company | None = None
-    city: str | None = None
-    canton: str | None = None
+    title: str | None = Field(
+        None, validation_alias=AliasPath("jobContent", "jobDescriptions", 0, "title")
+    )
+    company: Company | None = Field(
+        None, validation_alias=AliasPath("jobContent", "company")
+    )
+    city: str | None = Field(
+        None, validation_alias=AliasPath("jobContent", "location", "city")
+    )
+    canton: str | None = Field(
+        None, validation_alias=AliasPath("jobContent", "location", "cantonCode")
+    )
     workload: tuple[int, int] | None = None
-    permanent: bool | None = None
-    published_on: date | None = None
-    expires_on: date | None = None
-    external_url: str | None = None
-    apply_url: str | None = None
-    apply_email: str | None = None
-    contact: Contact | None = None
-    description: str | None = None
-    language: str | None = None
+    permanent: bool | None = Field(
+        None, validation_alias=AliasPath("jobContent", "employment", "permanent")
+    )
+    published_on: date | None = Field(
+        None, validation_alias=AliasPath("publication", "startDate")
+    )
+    expires_on: date | None = Field(
+        None, validation_alias=AliasPath("publication", "endDate")
+    )
+    external_url: str | None = Field(
+        None, validation_alias=AliasPath("jobContent", "externalUrl")
+    )
+    apply_url: str | None = Field(
+        None, validation_alias=AliasPath("jobContent", "applyChannel", "formUrl")
+    )
+    apply_email: str | None = Field(
+        None, validation_alias=AliasPath("jobContent", "applyChannel", "emailAddress")
+    )
+    contact: Contact | None = Field(
+        None, validation_alias=AliasPath("jobContent", "publicContact")
+    )
+    description: str | None = Field(
+        None,
+        validation_alias=AliasPath("jobContent", "jobDescriptions", 0, "description"),
+    )
+    language: str | None = Field(
+        None,
+        validation_alias=AliasPath(
+            "jobContent", "jobDescriptions", 0, "languageIsoCode"
+        ),
+    )
     raw: dict[str, Any] = Field(default_factory=dict, repr=False)
+
+    @model_validator(mode="before")
+    @classmethod
+    def collect_workload(cls, data: Any) -> Any:
+        """Combine the separate workload percentages into one range, and keep the record on `raw`."""
+        if not isinstance(data, dict) or "jobContent" not in data:
+            return data
+        employment = data["jobContent"].get("employment") or {}
+        workload = (
+            employment.get("workloadPercentageMin"),
+            employment.get("workloadPercentageMax"),
+        )
+        return {**data, "workload": None if None in workload else workload, "raw": data}
+
+    @field_validator("description")
+    @classmethod
+    def strip_markup(cls, value: str | None) -> str | None:
+        return clean_html(value) if value else value
