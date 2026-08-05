@@ -2,7 +2,9 @@
 
 from datetime import date
 
-from jobroom.models import JobAd, SearchHit
+import pytest
+
+from jobroom.models import JobAd, SearchHit, clean_html
 
 # A single record as returned by the search endpoint
 # (`POST /jobadservice/api/jobAdvertisements/_search`), trimmed to the fields
@@ -144,6 +146,20 @@ def test_snippet_html_is_cleaned():
     assert "<em>" not in hit.snippet
     assert "&nbsp;" not in hit.snippet
     assert "Scripting in Bash and Python" in hit.snippet
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (r"clicca su \<\<Per candidarsi\>\>.", "clicca su <<Per candidarsi>>."),
+        (r"Interventionen \<\< best-effort \>\>", "Interventionen << best-effort >>"),
+        ("5 < 10 and 20 > 3", "5 < 10 and 20 > 3"),
+        ("Bash and <em>Python</em>", "Bash and Python"),
+    ],
+)
+def test_clean_html_keeps_text(raw, expected):
+    """Only real tags are stripped: escaped or bare angle brackets are text."""
+    assert clean_html(raw) == expected
 
 
 def test_missing_nested_data():

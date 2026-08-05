@@ -16,12 +16,17 @@ from pydantic import (
     model_validator,
 )
 
-HTML_TAG = re.compile(r"<[^>]+>")
+HTML_TAG = re.compile(r"(?<!\\)</?[a-zA-Z][^>]*>|<!--.*?-->", re.DOTALL)
+ESCAPED_BRACKET = re.compile(r"\\([<>])")
 
 
 def clean_html(text: str) -> str:
-    """Strip HTML tags and decode HTML entities, leaving the text content untouched."""
-    return html.unescape(HTML_TAG.sub("", text))
+    """Strip HTML tags and decode HTML entities, leaving the text content untouched.
+
+    Angle brackets that the API escaped for markdown (`\\<\\< ... \\>\\>`) are text,
+    not markup: they are left in place and unescaped.
+    """
+    return ESCAPED_BRACKET.sub(r"\1", html.unescape(HTML_TAG.sub("", text)))
 
 
 class Company(BaseModel):
